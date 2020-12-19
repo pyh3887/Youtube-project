@@ -3,7 +3,7 @@ from django.http.response import HttpResponseRedirect, HttpResponse
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from myapp.models import Board, BoardComment
 import datetime
-from ipware.ip import get_client_ip 
+from ipware.ip import get_client_ip
 import json
 import matplotlib.pyplot as plt
 import os
@@ -21,6 +21,9 @@ from xgboost.sklearn import XGBRegressor
 plt.rc('font', family='malgun gothic') # 한글 깨짐 방지
 plt.rcParams['axes.unicode_minus'] = False 
 # Create your views here.
+
+link = os.path.dirname(os.path.dirname(__file__)) # 절대경로 
+
 def IndexFunc(request):
     return render(request, 'index.html')
 
@@ -639,7 +642,7 @@ def TitleGenFunc(request):
     sequences, tok, vocab = TokenizeTitle(text)
     x, y, m = makeDatas(sequences)
     #makeModel(x, y, m, vocab) # 모델생성, 데이터 양이 많아질수록 시간이 오래 걸림
-    bestmodel = tf.keras.models.load_model('C:/Work/py_sou/pyweb/myapp/static/datafiles/models/best_model.hdf5')
+    bestmodel = tf.keras.models.load_model(link+'\myapp\static\datafiles\models/best_model.hdf5')
     #model = tf.keras.models.load_model('C:/Work/py_sou/pyweb/myapp/static/datafiles/models/gen_title_model.hdf5')
     eval = bestmodel.evaluate(x, y)
     results = sentence_generation(bestmodel, tok, new_keyword, 10, m)
@@ -669,9 +672,11 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 max_len = 0
 vocab_size = 0
 def ExtractTitle(): # 영상 제목 가져오기
-    df = pd.read_csv('C:/Work/py_sou/pyweb/myapp/static/datafiles/KRtrending.csv')
+    
+
+    df = pd.read_csv(link+'/myapp/static/KRtrending.csv')
     titles = ''
-    cnt = 0
+    cnt = 0 
 
     for i in range(len(df['title'])): 
         if df['views'][i] > 100000: # 조회수 10만 이상인 제목만 읽기
@@ -699,7 +704,7 @@ def TokenizeTitle(text): # 가져온 영상 제목을 토큰화 하기
             sequ = encoded[: i+1]
             sequences.append(sequ) # 토큰이 어떤 토큰 다음으로 나올지 학습시키기 위해
     print('샘플 수 : %d'%len(sequences)) # 10
-    
+  
     return sequences, tok, vocab_size
 
 def makeDatas(sequences): # 토큰화한 데이터에서 feature, label 구하기
@@ -715,12 +720,13 @@ def makeDatas(sequences): # 토큰화한 데이터에서 feature, label 구하�
     # label : onehot encoding
     y = to_categorical(y, num_classes=vocab_size)
     
+    
     return x, y, max_len
 
 def makeModel(x, y, max_len, vocab_size): # 모델 생성. 시간이 오래걸림
     model = Sequential()
-    model.add(Embedding(vocab_size, 32, input_length=(max_len-1)))
-    model.add(LSTM(32))
+    model.add(Embedding(vocab_size,input_length=(max_len-1)))
+    model.add(LSTM((max_len-1)))
     model.add(Dense(units=32, activation='relu'))
     model.add(Dense(units=vocab_size, activation='softmax'))
     model.summary()
@@ -728,21 +734,24 @@ def makeModel(x, y, max_len, vocab_size): # 모델 생성. 시간이 오래걸�
     model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
     
     earlystop = EarlyStopping(monitor='loss', patience=10, mode='min')
-    mcheck = ModelCheckpoint(filepath='C:/Work/py_sou/pyweb/myapp/static/datafiles/models/best_model.hdf5', monitor='loss', save_best_only=True)
-    model.fit(x, y, epochs=1000, verbose=2, batch_size=64, callbacks=[earlystop, mcheck])
+    mcheck = ModelCheckpoint(filepath=link+'\myapp\static\datafiles\models/best_model.hdf5', monitor='loss', save_best_only=True)
+    model.fit(x, y, epochs=1000, verbose=1, batch_size=64, callbacks=[earlystop, mcheck])
     print(model.evaluate(x, y))
     
     # 모델 저장
-    model.save('C:/Work/py_sou/pyweb/myapp/static/datafiles/models/gen_title_model.hdf5')
+    model.save(link+'\myapp\static\datafiles\models/gen_title_model.hdf5')
     del model
 
 def sentence_generation(model, t, current_word, n, max_len): # 모델이 정확하게 예측하는지 함수
     init_word = current_word
     sentence = ''
+    print(current_word)
     for _ in range(n):
         encoded = t.texts_to_sequences([current_word])[0]  # 현재 단어에 대한 정수 인코딩  
+        
         encoded = pad_sequences([encoded], maxlen=(max_len - 1), padding='pre')
         result = np.argmax( model.predict(encoded) )
+        
         for word, index in t.word_index.items():
             if index == result: # 만약 예측한 단어의 인덱스와 동일한 단어가 있으면
                 break
@@ -763,10 +772,10 @@ def sentence_generation(model, t, current_word, n, max_len): # 모델이 정확�
 #     print('방탄소년단 : ', sentence_generation(model, tok, '방탄소년단', 10, m))
 
 '''========================끝============================'''
-#-------유진
+#-------윤호
 
 def DataViewFunc(request):
-    data = pd.read_csv("C:\work\py_sou\pyweb\myapp\static\KRtrending.csv")
+    data = pd.read_csv(link+"\myapp\static\KRtrending.csv")
     #print(data)
     
     
@@ -775,7 +784,7 @@ def DataViewFunc(request):
     views_num = data.views
     plt.scatter(views_num, likes_num)
     plt.gcf()
-    plt.savefig("C:/work/py_sou/pyweb/myapp/static/views-likes.png")
+    plt.savefig(link+"\myapp\static/views-likes.png")
     plt.clf()
 
     # 시청 수 - 싫어요 수
@@ -783,7 +792,7 @@ def DataViewFunc(request):
     views_num = data.views
     plt.scatter(views_num, dislikes_num)
     plt.gcf()
-    plt.savefig("C:/work/py_sou/pyweb/myapp/static/views-dislikes.png")
+    plt.savefig(link+"\myapp\static/views-dislikes.png")
     plt.clf()
     
     # 시청 수 - 댓글 수 
@@ -791,7 +800,7 @@ def DataViewFunc(request):
     views_num = data.views
     plt.scatter(views_num, comments_num)
     plt.gcf()
-    plt.savefig("C:/work/py_sou/pyweb/myapp/static/views-comments.png")
+    plt.savefig(link+"\myapp\static/views-comments.png")
     plt.clf()
     
     # 카테고리별 Trend youtube video 수
@@ -801,7 +810,7 @@ def DataViewFunc(request):
     plt.bar(indexs, cate_id_num)
     plt.xticks(indexs, labels, fontsize=7)
     plt.gcf()
-    plt.savefig("C:/work/py_sou/pyweb/myapp/static/sizeofgroupbyid.png")
+    plt.savefig(link+"\myapp\static/sizeofgroupbyid.png")
     plt.clf()
     
     # 시청률 집단 분류 후 집단 별 수
@@ -821,7 +830,7 @@ def DataViewFunc(request):
     plt.xticks(index, label, fontsize=7)
     plt.title('Graph of ViewGroup')
     plt.gcf()
-    plt.savefig("C:/work/py_sou/pyweb/myapp/static/viewgroup_count.png")
+    plt.savefig(link+"\myapp\static\\viewgroup_count.png")
     plt.clf()
     
     # 전체 상관관계    
@@ -830,7 +839,7 @@ def DataViewFunc(request):
     sns.heatmap(data_corr, cmap='viridis')
     plt.title('Heatmap of Youtube')
     plt.gcf()
-    plt.savefig("C:/work/py_sou/pyweb/myapp/static/heatmapofyoutube.png")
+    plt.savefig(link+"\myapp\static\heatmapofyoutube.png")
     plt.clf()
     
     
@@ -838,7 +847,7 @@ def DataViewFunc(request):
 #----------지훈
 
 
-dir = 'C:/work/py_sou/pyweb/myapp/static/files/'
+dir = 'C:\work\work\python\pyweb\myapp\static\\files\\'
 def AnalysisFunc(request):
     '''
     # 데이터 읽기 -> 저장 해서 주석처리
@@ -848,7 +857,7 @@ def AnalysisFunc(request):
     df_kr.to_csv(dir+ 'df_kr.csv', encoding='utf-8')
     '''
     # 가공한 파일 읽어서 가져오기 
-    df_kr = pd.read_csv(dir+'df_kr.csv', encoding='utf-8')
+    df_kr = pd.read_csv(link+'\myapp\static\\files\\df_kr.csv', encoding='utf-8')
     #print(df_kr.head(2))
              
     # 각 분야 별 조회수와 업로드수
@@ -880,7 +889,7 @@ def Category_id_json(nation_json):
 # 데이터 읽어 오기    
 def Data_read():
     # 한국 데이터 
-    df_kr = pd.read_csv(dir + 'KRtrending.csv', engine='python')
+    df_kr = pd.read_csv(link+'\myapp\static/KRtrending.csv', engine='python')
     df_kr['nation'] = 'KR'
     df_kr['category_id'] = df_kr['category_id'].astype(str)
     df_kr = df_kr[['category_id', 'nation', 'views', 'publish_time']]
@@ -1180,7 +1189,7 @@ def Donut_chart(df_kr):
     
     
 
-# ------------재홍
+# ------------윤호
 
 '''
 jaehong 
@@ -1239,8 +1248,8 @@ def jaehong(request):
     df.to_csv('C:\work\py_sou\pyweb\myapp\static\youtubeDS/KRtrending.csv', index=False, sep=',', na_rep='NaN', encoding='utf-8')
 
     '''
-    data=pd.read_csv("C:/work/py_sou/pyweb/myapp/static/KRtrending.csv")
-    cat_data=pd.read_json("C:/work/py_sou/pyweb/myapp/static/files/KR_category_id.json")
+    data=pd.read_csv(link+"\myapp\static\KRtrending.csv")
+    cat_data=pd.read_json(link+"/myapp\static/files/KR_category_id.json")
     cat_items=cat_data['items'] #json에서 item 태그 정보 가져오기
     cat_items.count()
     for idx in range(0, cat_items.count()):
